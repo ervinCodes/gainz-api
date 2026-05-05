@@ -1,10 +1,16 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-require('dotenv').config()
+const pool = require('./config/db');
 
-const authRoutes = require('./routes/auth');
-const workoutRoutes = require('./routes/workouts')
+
+console.log('DB_PASSWORD type:', typeof process.env.DB_PASSWORD)
+console.log('DB_PASSWORD value:', process.env.DB_PASSWORD)
+
+// const authRoutes = require('./routes/auth');
+// const workoutRoutes = require('./routes/workouts')
 
 const app = express()
 
@@ -33,8 +39,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Routes 
-app.use('/auth', authRoutes);
-app.use('workouts', workoutRoutes);
+// app.use('/auth', authRoutes);
+// app.use('workouts', workoutRoutes);
 
 // Health check 
 app.get('/', (req, res) => {
