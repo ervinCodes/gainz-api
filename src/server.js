@@ -9,7 +9,7 @@ const pool = require('./config/db');
 console.log('DB_PASSWORD type:', typeof process.env.DB_PASSWORD)
 console.log('DB_PASSWORD value:', process.env.DB_PASSWORD)
 
-// const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth');
 // const workoutRoutes = require('./routes/workouts')
 
 const app = express()
@@ -39,7 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Routes 
-// app.use('/auth', authRoutes);
+app.use('/auth', authRoutes);
 // app.use('workouts', workoutRoutes);
 
 // Health check 
