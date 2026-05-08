@@ -5,7 +5,7 @@ module.exports = {
         const token = req.cookies?.token // < read from cookie
 
         if(!token) {
-            return res.status(401).json({ message: Unauthorized })
+            return res.status(401).json({ message: 'Unauthorized' })
         }
 
         try {

@@ -113,5 +113,24 @@ module.exports = {
     logout: (req, res) => {
         // With JWT, logout is handled on the frontend by deleting the token
         res.status(200).json({ message: 'Logged out successfully' })
+    },
+
+    getProfile: (req, res) => {
+        try {
+            const result = await.pool.query(
+                'SELECT id, username, email, created_at FROM users WHERE id = $1',
+                [req.user.id]
+            )
+
+            if(result.rows.length === 0) {
+                return res.status(404).json({ message: 'User not found' })
+            }
+
+            const user = result.rows[0]
+            res.status(200).json({ userName: user.username, email: user.email })
+        } catch(err) {
+            console.error(err)
+            res.status(500).json({ message: 'Server error' })
+        }
     }
 }
