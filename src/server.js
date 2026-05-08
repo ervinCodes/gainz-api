@@ -4,15 +4,14 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const pool = require('./config/db');
-
-
-console.log('DB_PASSWORD type:', typeof process.env.DB_PASSWORD)
-console.log('DB_PASSWORD value:', process.env.DB_PASSWORD)
+const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/auth');
 // const workoutRoutes = require('./routes/workouts')
 
 const app = express()
+
+app.use(cookieParser())
 
 // CORS
 const allowedOrigins = [

@@ -45,7 +45,14 @@ module.exports = {
                 { expiresIn: '7d' }
             )
 
-            res.status(201).json({ token, user: { userName: user.username, email: user.email } })
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            })
+
+            res.status(200).json({ user: { userName: user.username, email: user.email } })
 
         } catch (err) {
             console.error(err)
@@ -88,7 +95,14 @@ module.exports = {
                 { expiresIn: '7d' }
             )
 
-            res.status(200).json({ token, user: { userName: user.username, email: user.email } })
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            })
+
+            res.status(200).json({ user: { userName: user.username, email: user.email } })
 
         } catch (err) {
             console.error(err)
