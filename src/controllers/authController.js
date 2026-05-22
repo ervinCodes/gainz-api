@@ -112,12 +112,13 @@ module.exports = {
 
     logout: (req, res) => {
         // With JWT, logout is handled on the frontend by deleting the token
+        res.clearCookie('token')
         res.status(200).json({ message: 'Logged out successfully' })
     },
 
-    getProfile: (req, res) => {
+    getProfile: async (req, res) => {
         try {
-            const result = await.pool.query(
+            const result = await pool.query(
                 'SELECT id, username, email, created_at FROM users WHERE id = $1',
                 [req.user.id]
             )
