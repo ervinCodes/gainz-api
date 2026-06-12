@@ -7,6 +7,7 @@ const pool = require('./config/db');
 const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/auth');
+const exerciseRoutes = require('./routes/exercises')
 // const workoutRoutes = require('./routes/workouts')
 
 const app = express()
@@ -39,6 +40,7 @@ app.use(morgan('dev'));
 
 // Routes 
 app.use('/auth', authRoutes);
+app.use('/exercises', exerciseRoutes);
 // app.use('workouts', workoutRoutes);
 
 // Health check 
