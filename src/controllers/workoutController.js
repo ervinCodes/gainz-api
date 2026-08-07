@@ -163,5 +163,64 @@ module.exports = {
             console.error(err)
             res.status(500).json({ message: 'Server error' })
         }
+    },
+    updateWorkout: async (req, res) => {
+        try {
+            const userId = req.user.id
+            const workoutId = req.params.id
+            const { exercises } = req.body 
+
+            for(let exercise of exercises) {
+                // Loop through each set and update one at a time
+                for (const set of exercise.sets) {
+                    await pool.query(
+                        `UPDATE sets 
+                        SET reps = $1, weight = $2, is_checked = $3 
+                        WHERE id = $4`,
+                        [set.reps, set.weight, set.isChecked, set.id]
+                    )
+                }
+                // Update the personal record if needed
+
+                const weights = exercise.sets.map(set => set.weight)
+                const maxWeight = Math.max(...weights)
+
+                // Check if a personal record exists for this exercise
+                const prResult = await pool.query(
+                    `SELECT * FROM personal_records WHERE user_id = $1 AND exercise_name = $2`,
+                    [userId, exercise.name]
+                )
+                if (prResult.rows.length > 0) {
+                    // Update personal record if max weight is greater than current top_set
+                    if (maxWeight > prResult.rows[0].top_set) {
+                        await pool.query(
+                            `UPDATE personal_records SET top_set = $1 WHERE user_id = $2 AND exercise_name = $3`,
+                            [maxWeight, userId, exercise.name]
+                        )
+                    }
+                } else {
+                    // Create a new personal record if none exists
+                    await pool.query(
+                        `INSERT INTO personal_records (user_id, exercise_name, top_set) VALUES ($1, $2, $3)`,
+                        [userId, exercise.name, maxWeight]
+                    )
+                }
+            }
+            res.status(200).json({ message: 'Workout updated successfully '})
+
+        } catch (error) {
+            console.error(error)
+            res.status(500).json({ message: 'Server error' })
+        }
     }
 }
+
+// 1. Get userId from JWT and workoutId from req.params.id
+// 2. Get exercises from req.body
+// 3. For each exercise:
+//    a. Update the sets in the database
+//    b. Find the max weight lifted in the sets
+//    c. Check if a personal record exists for this exercise
+//    d. If max weight > current top_set → update personal record
+//    e. If no personal record exists → create one
+// 4. Return 200 success
