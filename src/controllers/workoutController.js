@@ -4,16 +4,16 @@ module.exports = {
     createWorkout: async (req, res) => {
         try {
             const userId = req.user.id
-            const { title, exercises } = req.body
+            const { title, exercises, type } = req.body
 
-            if (!title || !Array.isArray(exercises)) {
+            if (!title || !type || !Array.isArray(exercises)) {
                 return res.status(400).json({ message: 'Invalid data provided' })
             }
 
             // Create the workout
             const newWorkout = await pool.query(
-                'INSERT INTO workouts (user_id, title) VALUES ($1, $2) RETURNING *',
-                [userId, title]
+                'INSERT INTO workouts (user_id, title, type) VALUES ($1, $2, $3) RETURNING *',
+                [userId, title, type]
             )
 
             const workout = newWorkout.rows[0]
@@ -102,45 +102,51 @@ module.exports = {
             res.status(500).json({ message: 'Server error' })
         }
     },
-
     getSingleWorkout: async (req, res) => {
         try {
-            const userId = req.user.id
             const workoutId = req.params.id
+            const userId = req.user.id
 
-            const result = await pool.query(
-                `SELECT w.*, 
-                    json_agg(
-                        json_build_object(
-                            'id', e.id,
-                            'name', e.name,
-                            'personal_record', e.personal_record,
-                            'sets', (
-                                SELECT json_agg(
-                                    json_build_object(
-                                        'id', s.id,
-                                        'set_number', s.set_number,
-                                        'reps', s.reps,
-                                        'weight', s.weight,
-                                        'is_checked', s.is_checked
-                                    )
-                                )
-                                FROM sets s WHERE s.exercise_id = e.id
-                            )
-                        )
-                    ) as exercises
-                FROM workouts w
-                LEFT JOIN exercises e ON e.workout_id = w.id
-                WHERE w.id = $1 AND w.user_id = $2
-                GROUP BY w.id`,
+            // 1. Get the workout
+            const workoutResult = await pool.query(
+                `SELECT * FROM workouts WHERE id = $1 AND user_id = $2`,
                 [workoutId, userId]
             )
 
-            if (result.rows.length === 0) {
+            if (workoutResult.rows.length === 0) {
                 return res.status(404).json({ message: 'Workout not found' })
             }
 
-            res.status(200).json({ workout: result.rows[0] })
+            const workout = workoutResult.rows[0]
+
+            // 2. Get exercises for this workout
+            const exerciseResult = await pool.query(
+                `SELECT * FROM exercises WHERE workout_id = $1`,
+                [workoutId]
+            )
+
+            workout.exercises = exerciseResult.rows
+
+            // 3. For each exercise get its sets AND personal record
+            for (const exercise of workout.exercises) {
+                // Get sets
+                const setsResult = await pool.query(
+                    `SELECT * FROM sets WHERE exercise_id = $1 ORDER BY set_number ASC`,
+                    [exercise.id]
+                )
+                exercise.sets = setsResult.rows
+
+                // Get personal record
+                const prResult = await pool.query(
+                    `SELECT top_set, last_workout FROM personal_records WHERE user_id = $1 AND exercise_name = $2`,
+                    [userId, exercise.name]
+                )
+                const pr = prResult.rows[0]
+                exercise.top_set = pr?.top_set || 0
+                exercise.last_workout = pr?.last_workout?.[workout.type] || null
+            }
+
+            res.status(200).json({ workout })
 
         } catch (err) {
             console.error(err)
@@ -168,10 +174,10 @@ module.exports = {
         try {
             const userId = req.user.id
             const workoutId = req.params.id
-            const { exercises } = req.body 
+            const { exercises, type } = req.body 
 
             for(let exercise of exercises) {
-                // Loop through each set and update one at a time
+                // 1. Loop through each set and update one at a time
                 for (const set of exercise.sets) {
                     await pool.query(
                         `UPDATE sets 
@@ -180,12 +186,12 @@ module.exports = {
                         [set.reps, set.weight, set.isChecked, set.id]
                     )
                 }
-                // Update the personal record if needed
 
+                // 2. Calculate max weight
                 const weights = exercise.sets.map(set => set.weight)
                 const maxWeight = Math.max(...weights)
 
-                // Check if a personal record exists for this exercise
+                // 3. Check if a personal record exists for this exercise
                 const prResult = await pool.query(
                     `SELECT * FROM personal_records WHERE user_id = $1 AND exercise_name = $2`,
                     [userId, exercise.name]
@@ -205,6 +211,30 @@ module.exports = {
                         [userId, exercise.name, maxWeight]
                     )
                 }
+
+                // 4. Always update last_workout after PR check
+                const lastWorkoutData = {
+                    [type]: {
+                        sets: exercise.sets.map(set => ({ reps: set.reps, weight: set.weight })),
+                        date: new Date().toISOString()
+                    }
+                }
+
+                await pool.query(
+                    `UPDATE personal_records 
+                    SET last_workout = jsonb_set(
+                        COALESCE(last_workout, '{}'),
+                        $3,
+                        $4
+                    )
+                    WHERE user_id = $1 AND exercise_name = $2`,
+                    [
+                        userId,
+                        exercise.name,
+                        `{${type}}`,
+                        JSON.stringify(lastWorkoutData[type])
+                    ]
+                )
             }
             res.status(200).json({ message: 'Workout updated successfully '})
 
