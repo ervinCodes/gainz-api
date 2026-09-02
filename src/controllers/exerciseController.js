@@ -39,7 +39,7 @@ module.exports = {
             if(!name) {
                 return res.status(400).json({ message: 'Search query is required' })
             }
-            const response = await fetch(`${BASE_URL}/exercises?name=${encodeURIComponent(name)}`, options)
+            const response = await fetch(`${BASE_URL}/exercises/search?search=${encodeURIComponent(name)}`, options)
             const data = await response.json()
             res.status(200).json(data)
         } catch (err) {
