@@ -20,6 +20,7 @@ app.use(cookieParser())
 // CORS
 const allowedOrigins = [
     'http://localhost:3000',
+    'https://gainz-reboot-cpeg9yddv-ervincodes-projects.vercel.app',
     'https://www.gainzfitapp.com'
 ]
 
