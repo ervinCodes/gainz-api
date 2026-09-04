@@ -21,6 +21,7 @@ app.use(cookieParser())
 const allowedOrigins = [
     'http://localhost:3000',
     'https://gainz-reboot-cpeg9yddv-ervincodes-projects.vercel.app',
+    'https://gainzfitapp.com',
     'https://www.gainzfitapp.com'
 ]
 
