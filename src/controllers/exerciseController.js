@@ -9,6 +9,16 @@ const options = {
     }
 }
 
+// Helper to capitalize each word
+function capitalizeName(name) {
+    return name
+        .trim()
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+}
+
 const BASE_URL = `https://${process.env.RAPIDAPI_HOST}/api/v1`
 
 module.exports = {
@@ -78,7 +88,8 @@ module.exports = {
 
     addCustomExercise: async (req, res) => {
         try {
-            const { name, category } = req.body
+            const { category } = req.body
+            const name = capitalizeName(req.body.name)  // ← capitalize here
 
             if (!name) {
                 return res.status(400).json({ message: 'Exercise name is required' })
