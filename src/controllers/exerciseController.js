@@ -1,8 +1,9 @@
+const ExerciseList = require('../models/ExerciseList')
 
 const options = {
     method: 'GET',
     headers: {
-        'Content-Type': 'application/jason',
+        'Content-Type': 'application/json',
         'x-rapidapi-host': process.env.RAPIDAPI_HOST,
         'x-rapidapi-key': process.env.RAPIDAPI_KEY
     }
@@ -21,7 +22,7 @@ module.exports = {
             res.status(500).json({ message: 'Server error' })
         }
     },
-    
+
     getBodyParts: async (req, res) => {
         try {
             const response = await fetch(`${BASE_URL}/bodyparts`, options)
@@ -36,13 +37,81 @@ module.exports = {
     searchExercises: async (req, res) => {
         try {
             const { name } = req.query
-            if(!name) {
+            if (!name) {
                 return res.status(400).json({ message: 'Search query is required' })
             }
-            const response = await fetch(`${BASE_URL}/exercises/search?search=${encodeURIComponent(name)}`, options)
-            const data = await response.json()
-            res.status(200).json(data)
+
+            // Search ExerciseDB API
+            let apiResults = []
+            try {
+                const response = await fetch(`${BASE_URL}/exercises/search?search=${encodeURIComponent(name)}`, options)
+                const data = await response.json()
+                apiResults = data.data || []
+            } catch (err) {
+                console.error('ExerciseDB API error:', err)
+            }
+
+            // Search MongoDB custom exercises
+            const customResults = await ExerciseList.find({
+                name: { $regex: name, $options: 'i' }
+            })
+
+            // Format custom results to match ExerciseDB format
+            const formattedCustom = customResults.map(exercise => ({
+                exerciseId: exercise._id,
+                name: exercise.name,
+                bodyParts: [exercise.category],
+                equipments: [],
+                isCustom: true
+            }))
+
+            // Merge both results
+            const combined = [...apiResults, ...formattedCustom]
+
+            res.status(200).json({ data: combined })
+
         } catch (err) {
+            console.error(err)
+            res.status(500).json({ message: 'Server error' })
+        }
+    },
+
+    addCustomExercise: async (req, res) => {
+        try {
+            const { name, category } = req.body
+
+            if (!name) {
+                return res.status(400).json({ message: 'Exercise name is required' })
+            }
+
+            // Check for duplicates
+            const existing = await ExerciseList.findOne({
+                name: { $regex: `^${name}$`, $options: 'i' }
+            })
+
+            if (existing) {
+                return res.status(409).json({ message: 'This exercise already exists' })
+            }
+
+            const newExercise = await ExerciseList.create({
+                name,
+                category: category || 'Custom'
+            })
+
+            res.status(201).json({ message: 'Exercise added successfully', exercise: newExercise })
+
+        } catch (err) {
+            console.error(err)
+            res.status(500).json({ message: 'Server error' })
+        }
+    },
+
+    getCustomExercises: async (req, res) => {
+        try {
+            const exercises = await ExerciseList.find({ isCustom: true })
+            res.status(200).json({ exercises })
+        } catch (err) {
+            console.error(err)
             res.status(500).json({ message: 'Server error' })
         }
     }
