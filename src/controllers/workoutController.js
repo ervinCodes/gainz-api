@@ -114,7 +114,7 @@ createWorkout: async (req, res) => {
         try {
             const userId = req.user.id
             const workoutId = req.params.id
-            const { exercises } = req.body  // ← removed type
+            const { exercises } = req.body
 
             const workout = await Workout.findOneAndUpdate(
                 { _id: workoutId, userId },
@@ -127,8 +127,14 @@ createWorkout: async (req, res) => {
             }
 
             for (const exercise of exercises) {
-                const exerciseType = exercise.type  // ← now comes from exercise
-                const weights = exercise.sets.map(set => set.weight)
+                const exerciseType = exercise.type
+                
+                const weights = exercise.sets
+                    .map(set => set.weight)
+                    .filter(w => w > 0) 
+
+                if (weights.length === 0) continue  
+
                 const maxWeight = Math.max(...weights)
 
                 const pr = await PersonalRecord.findOne({ userId, exerciseName: exercise.name })
@@ -144,6 +150,7 @@ createWorkout: async (req, res) => {
                         date: new Date()
                     }
 
+                    pr.markModified('lastWorkout') 
                     await pr.save()
 
                 } else {
