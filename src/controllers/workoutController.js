@@ -40,21 +40,27 @@ createWorkout: async (req, res) => {
         try {
             const userId = req.user.id
 
-            // Get all workouts for this user
             const workouts = await Workout.find({ userId }).sort({ createdAt: -1 })
 
-            // Attach personal records to each exercise
-            for (const workout of workouts) {
-                for (const exercise of workout.exercises) {
+            // Convert to plain objects so we can add properties
+            const workoutsWithPR = await Promise.all(workouts.map(async (workout) => {
+                const workoutObj = workout.toObject()  // convert to plain object
+
+                workoutObj.exercises = await Promise.all(workoutObj.exercises.map(async (exercise) => {
                     const pr = await PersonalRecord.findOne({
                         userId,
                         exerciseName: exercise.name
                     })
-                    exercise.topSet = pr?.topSet || 0
-                }
-            }
+                    return {
+                        ...exercise,
+                        topSet: pr?.topSet || 0  
+                    }
+                }))
 
-            res.status(200).json({ workouts })
+                return workoutObj
+            }))
+
+            res.status(200).json({ workouts: workoutsWithPR })
 
         } catch (err) {
             console.error(err)
@@ -73,17 +79,22 @@ createWorkout: async (req, res) => {
                 return res.status(404).json({ message: 'Workout not found' })
             }
 
-            // Attach personal records to each exercise
-            for (const exercise of workout.exercises) {
+            // Convert to plain object so we can add properties
+            const workoutObj = workout.toObject()
+
+            workoutObj.exercises = await Promise.all(workoutObj.exercises.map(async (exercise) => {
                 const pr = await PersonalRecord.findOne({
                     userId,
                     exerciseName: exercise.name
                 })
-                exercise.topSet = pr?.topSet || 0
-                exercise.lastWorkout = pr?.lastWorkout?.[exercise.type] || null
-            }
+                return {
+                    ...exercise,
+                    topSet: pr?.topSet || 0,
+                    lastWorkout: pr?.lastWorkout?.[exercise.type] || null
+                }
+            }))
 
-            res.status(200).json({ workout })
+            res.status(200).json({ workout: workoutObj })
 
         } catch (err) {
             console.error(err)
@@ -138,6 +149,10 @@ createWorkout: async (req, res) => {
                 const maxWeight = Math.max(...weights)
 
                 const pr = await PersonalRecord.findOne({ userId, exerciseName: exercise.name })
+
+                // ← ADD THIS
+                console.log('PR found:', pr)
+                console.log('Max weight:', maxWeight)
 
                 if (pr) {
                     if (maxWeight > pr.topSet) {
