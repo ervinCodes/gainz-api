@@ -42,7 +42,10 @@ module.exports = {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
             })
 
-            res.status(200).json({ user: { userName: user.userName, email: user.email } })
+            res.status(200).json({ 
+                token,
+                user: { userName: user.userName, email: user.email } 
+            })
 
         } catch (err) {
             console.error(err)
@@ -90,7 +93,10 @@ module.exports = {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
             })
 
-            res.status(200).json({ user: { userName: user.userName, email: user.email } })
+            res.status(200).json({ 
+                token,
+                user: { userName: user.userName, email: user.email } 
+            })
 
         } catch (err) {
             console.error(err)
