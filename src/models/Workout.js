@@ -27,6 +27,7 @@ const WorkoutSchema = new mongoose.Schema({
     title: { type: String, required: true },
     exercises: [ExerciseSchema],
     completed: { type: Boolean, default: false },
+    completedCount: { type: Number, default: 0 },
     createAt: { type: Date, default: Date.now }
 })
 

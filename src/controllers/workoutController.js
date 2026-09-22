@@ -129,7 +129,9 @@ createWorkout: async (req, res) => {
 
             const workout = await Workout.findOneAndUpdate(
                 { _id: workoutId, userId },
-                { exercises },
+                { exercises,
+                    $inc: { completedCount: 1 }
+                 },
                 { new: true }
             )
 
