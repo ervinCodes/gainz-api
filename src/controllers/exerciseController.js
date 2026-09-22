@@ -72,11 +72,20 @@ module.exports = {
                 name: exercise.name,
                 bodyParts: [exercise.category],
                 equipments: [],
-                isCustom: true
+                isCustom: exercise.isCustom
             }))
 
             // Merge both results
             const combined = [...apiResults, ...formattedCustom]
+
+            // Remove duplicates by name (case insensitive)
+            const seen = new Set()
+            const deduplicated = combined.filter(exercise => {
+                const name = exercise.name.toLowerCase().trim()
+                if (seen.has(name)) return false
+                seen.add(name)
+                return true
+            })
 
             res.status(200).json({ data: combined })
 
