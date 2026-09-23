@@ -56,12 +56,15 @@ module.exports = {
             try {
                 const response = await fetch(`${BASE_URL}/exercises/search?search=${encodeURIComponent(name)}`, options)
                 const data = await response.json()
-                apiResults = (data.data || []).map(exercise => ({
-                    ...exercise,
-                    bodyParts: exercise.bodyParts?.map(part => 
-                        part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
-                    ) || []
-                }))
+                apiResults = (data.data || []).map(exercise => {
+                    console.log('Full exercise object:', JSON.stringify(exercise, null, 2))
+                    return {
+                        ...exercise,
+                        bodyParts: exercise.bodyParts?.map(part => 
+                            part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+                        ) || []
+                    }
+                })
             } catch (err) {
                 console.error('ExerciseDB API error:', err)
             }
