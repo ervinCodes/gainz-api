@@ -5,8 +5,10 @@ const { ensureAuth } = require('../middleware/auth')
 
 router.post('/create', ensureAuth, workoutController.createWorkout)
 router.get('/', ensureAuth, workoutController.getWorkouts)
+router.get('/progress', ensureAuth, workoutController.getExerciseProgress)
 router.get('/:id', ensureAuth, workoutController.getSingleWorkout)
 router.put('/:id', ensureAuth, workoutController.updateWorkout)
 router.delete('/:id', ensureAuth, workoutController.deleteWorkout)
+
 
 module.exports = router

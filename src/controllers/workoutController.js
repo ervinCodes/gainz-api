@@ -1,5 +1,6 @@
 const Workout = require('../models/Workout')
 const PersonalRecord = require('../models/PersonalRecord')
+const ExerciseList = require('../models/ExerciseList')
 
 module.exports = {
 createWorkout: async (req, res) => {
@@ -191,5 +192,81 @@ createWorkout: async (req, res) => {
             console.error(err)
             res.status(500).json({ message: 'Server error' })
         }
+    },
+    getExerciseProgress: async (req, res) => {
+    try {
+        const userId = req.user.id
+
+        // Get all personal records for this user
+        const personalRecords = await PersonalRecord.find({ userId })
+
+        if (!personalRecords.length) {
+            return res.status(200).json({ progress: {} })
+        }
+
+        // Get all workouts for this user
+        const workouts = await Workout.find({ userId }).sort({ createAt: 1 })
+
+        // Build progress data for each exercise
+        const progressData = {}
+
+        for (const pr of personalRecords) {
+            // Look up category in ExerciseList
+            const exerciseInfo = await ExerciseList.findOne({
+                name: { $regex: `^${pr.exerciseName}$`, $options: 'i' }
+            })
+
+            const category = exerciseInfo?.category || 'Other'
+
+            // Build history from workouts
+            const history = []
+
+            for (const workout of workouts) {
+                const exercise = workout.exercises.find(
+                    e => e.name.toLowerCase() === pr.exerciseName.toLowerCase()
+                )
+
+                if (exercise && exercise.sets.length > 0) {
+                    const weights = exercise.sets
+                        .map(s => s.weight)
+                        .filter(w => w > 0)
+
+                    if (weights.length > 0) {
+                        history.push({
+                            date: workout.createAt,
+                            maxWeight: Math.max(...weights)
+                        })
+                    }
+                }
+            }
+
+            // Only include exercises that have been logged at least once
+            if (history.length > 0) {
+                if (!progressData[category]) {
+                    progressData[category] = []
+                }
+
+                progressData[category].push({
+                    exerciseName: pr.exerciseName,
+                    topSet: pr.topSet,
+                    dateAchieved: pr.dateAchieved,
+                    history
+                })
+            }
+        }
+
+        // Sort exercises alphabetically within each category
+        for (const category of Object.keys(progressData)) {
+            progressData[category].sort((a, b) =>
+                a.exerciseName.localeCompare(b.exerciseName)
+            )
+        }
+
+        res.status(200).json({ progress: progressData })
+
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ message: 'Server error' })
     }
+}
 }
