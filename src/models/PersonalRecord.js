@@ -22,6 +22,11 @@ const PersonalRecordSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    history: [{
+        _id: false,
+        date: { type: Date, default: Date.now },
+        maxWeight: { type: Number, required: true }
+    }],
     dateAchieved: {
         type: Date,
         default: Date.now

@@ -142,33 +142,37 @@ createWorkout: async (req, res) => {
 
             for (const exercise of exercises) {
                 const exerciseType = exercise.type
-                
+
                 const weights = exercise.sets
                     .map(set => set.weight)
-                    .filter(w => w > 0) 
+                    .filter(w => w > 0)
 
-                if (weights.length === 0) continue  
+                if (weights.length === 0) continue
 
                 const maxWeight = Math.max(...weights)
 
                 const pr = await PersonalRecord.findOne({ userId, exerciseName: exercise.name })
 
-                // ← ADD THIS
-                console.log('PR found:', pr)
-                console.log('Max weight:', maxWeight)
-
                 if (pr) {
+                    // Older records have no history yet, so seed it from the current PR first
+                    if (pr.history.length === 0 && pr.topSet > 0) {
+                        pr.history.push({ date: pr.dateAchieved || new Date(), maxWeight: pr.topSet })
+                    }
+
                     if (maxWeight > pr.topSet) {
                         pr.topSet = maxWeight
                         pr.dateAchieved = new Date()
                     }
+
+                    // Record this session
+                    pr.history.push({ date: new Date(), maxWeight })
 
                     pr.lastWorkout[exerciseType] = {
                         sets: exercise.sets.map(set => ({ reps: set.reps, weight: set.weight })),
                         date: new Date()
                     }
 
-                    pr.markModified('lastWorkout') 
+                    pr.markModified('lastWorkout')
                     await pr.save()
 
                 } else {
@@ -176,6 +180,8 @@ createWorkout: async (req, res) => {
                         userId,
                         exerciseName: exercise.name,
                         topSet: maxWeight,
+                        dateAchieved: new Date(),
+                        history: [{ date: new Date(), maxWeight }],
                         lastWorkout: {
                             [exerciseType]: {
                                 sets: exercise.sets.map(set => ({ reps: set.reps, weight: set.weight })),
@@ -194,54 +200,33 @@ createWorkout: async (req, res) => {
         }
     },
     getExerciseProgress: async (req, res) => {
-    try {
-        const userId = req.user.id
+        try {
+            const userId = req.user.id
 
-        // Get all personal records for this user
-        const personalRecords = await PersonalRecord.find({ userId })
+            const personalRecords = await PersonalRecord.find({ userId })
 
-        if (!personalRecords.length) {
-            return res.status(200).json({ progress: {} })
-        }
-
-        // Get all workouts for this user
-        const workouts = await Workout.find({ userId }).sort({ createAt: 1 })
-
-        // Build progress data for each exercise
-        const progressData = {}
-
-        for (const pr of personalRecords) {
-            // Look up category in ExerciseList
-            const exerciseInfo = await ExerciseList.findOne({
-                name: { $regex: `^${pr.exerciseName}$`, $options: 'i' }
-            })
-
-            const category = exerciseInfo?.category || 'Other'
-
-            // Build history from workouts
-            const history = []
-
-            for (const workout of workouts) {
-                const exercise = workout.exercises.find(
-                    e => e.name.toLowerCase() === pr.exerciseName.toLowerCase()
-                )
-
-                if (exercise && exercise.sets.length > 0) {
-                    const weights = exercise.sets
-                        .map(s => s.weight)
-                        .filter(w => w > 0)
-
-                    if (weights.length > 0) {
-                        history.push({
-                            date: workout.createAt,
-                            maxWeight: Math.max(...weights)
-                        })
-                    }
-                }
+            // One query for all categories instead of one per exercise
+            const exerciseList = await ExerciseList.find({}, 'name category')
+            const categoryByName = {}
+            for (const item of exerciseList) {
+                categoryByName[item.name.toLowerCase().trim()] = item.category
             }
 
-            // Only include exercises that have been logged at least once
-            if (history.length > 0) {
+            const progressData = {}
+
+            for (const pr of personalRecords) {
+                let history = pr.history.map(h => ({ date: h.date, maxWeight: h.maxWeight }))
+
+                // Older records with no history show their PR as a single point
+                if (history.length === 0 && pr.topSet > 0) {
+                    history = [{ date: pr.dateAchieved, maxWeight: pr.topSet }]
+                }
+
+                // Skip exercises that were never actually logged
+                if (history.length === 0) continue
+
+                const category = categoryByName[pr.exerciseName.toLowerCase().trim()] || 'Other'
+
                 if (!progressData[category]) {
                     progressData[category] = []
                 }
@@ -253,20 +238,18 @@ createWorkout: async (req, res) => {
                     history
                 })
             }
+
+            for (const category of Object.keys(progressData)) {
+                progressData[category].sort((a, b) =>
+                    a.exerciseName.localeCompare(b.exerciseName)
+                )
+            }
+
+            res.status(200).json({ progress: progressData })
+
+        } catch (err) {
+            console.error(err)
+            res.status(500).json({ message: 'Server error' })
         }
-
-        // Sort exercises alphabetically within each category
-        for (const category of Object.keys(progressData)) {
-            progressData[category].sort((a, b) =>
-                a.exerciseName.localeCompare(b.exerciseName)
-            )
-        }
-
-        res.status(200).json({ progress: progressData })
-
-    } catch (err) {
-        console.error(err)
-        res.status(500).json({ message: 'Server error' })
     }
-}
 }
